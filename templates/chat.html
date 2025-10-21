@@ -18,45 +18,44 @@
     </div>
 </div>
 <script>
-    const socket = io();
-    const username = "{{ username }}";
-    const room = "{{ room }}";
-    socket.emit("join_app", {username});
-    socket.emit("join", {username, room});
+const socket = io();
+const username = "{{ username }}";
+const room = "{{ room }}";
 
-    const msgInput = document.getElementById("msgInput");
-    const sendBtn = document.getElementById("sendBtn");
-    const messagesDiv = document.getElementById("messages");
+// Join app for active user tracking
+socket.emit("join_app", { username });
+socket.emit("join", { username, room });
 
-    sendBtn.onclick = () => {
-        const text = msgInput.value.trim();
-        if (!text) return;
-        socket.emit("send_message", {room, sender: username, text});
-        msgInput.value = "";
-    };
+const msgInput = document.getElementById("msgInput");
+const sendBtn = document.getElementById("sendBtn");
+const messagesDiv = document.getElementById("messages");
 
-    socket.on("new_message", data => {
-        const div = document.createElement("div");
-        div.classList.add("message");
-        if(data.sender === username) div.classList.add("mine");
-        div.innerHTML = `<b>${data.sender}:</b> ${data.text}`;
-        messagesDiv.appendChild(div);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
+sendBtn.onclick = () => {
+    const text = msgInput.value.trim();
+    if (!text) return;
+    socket.emit("send_message", { room, sender: username, text });
+    msgInput.value = "";
+};
 
-    socket.on("system_message", data => {
-        const div = document.createElement("div");
-        div.classList.add("system-msg");
-        div.textContent = data.msg;
-        messagesDiv.appendChild(div);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
-    });
+// Real-time new message listener
+socket.on("new_message", data => {
+    const div = document.createElement("div");
+    div.classList.add("message");
+    if (data.sender === username) div.classList.add("mine");
+    div.innerHTML = `<b>${data.sender}:</b> ${data.text}`;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+});
 
-    msgInput.addEventListener("keypress", () => {
-        socket.emit("typing", {room, sender: username, typing: true});
-    });
-    msgInput.addEventListener("blur", () => {
-        socket.emit("typing", {room, sender: username, typing: false});
-    });
+// System messages (join/leave)
+socket.on("system_message", data => {
+    const div = document.createElement("div");
+    div.classList.add("system-msg");
+    div.textContent = data.msg;
+    messagesDiv.appendChild(div);
+    messagesDiv.scrollTop = messagesDiv.scrollHeight;
+});
 </script>
+
 {% endblock %}
+
