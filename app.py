@@ -104,16 +104,19 @@ def index():
     if "username" not in session:
         return redirect(url_for("login"))
     username = session["username"]
-    # Existing rooms
-    rooms = []
-    try:
-        rows = db.session.query(Message.room).distinct().limit(50).all()
-        rooms = [r[0] for r in rows if r[0]]
-    except:
-        pass
-    # Other users for starting DM
+
+    # All other registered users (for starting DM)
     other_users = User.query.filter(User.username != username).all()
-    return render_template("index.html", rooms=rooms, users=other_users, username=username)
+
+    # Active users (from in-memory ACTIVE_USERS)
+    active_users = list(USERNAME_TO_SID.keys())
+
+    return render_template(
+        "index.html",
+        username=username,
+        users=other_users,
+        active_users=active_users
+    )
 
 @app.route("/chat/<room>")
 def chat_room(room):
@@ -205,3 +208,4 @@ def on_typing(data):
 # --------------------------
 if __name__ == "__main__":
     socketio.run(app, host="0.0.0.0", port=5000, debug=True)
+
