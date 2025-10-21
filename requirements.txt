@@ -1,0 +1,6 @@
+flask
+flask-socketio
+eventlet
+flask-sqlalchemy
+flask-login
+gunicorn
