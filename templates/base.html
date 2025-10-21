@@ -1,0 +1,30 @@
+<!-- templates/base.html -->
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>{% block title %}Chat App{% endblock %}</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js" integrity="" crossorigin="anonymous"></script>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <a class="brand" href="{{ url_for('index') }}">FlaskChat</a>
+      <div class="header-right">
+        {% if session.get('username') %}
+          <span class="username">Logged in as <strong>{{ session['username'] }}</strong></span>
+          <a class="btn" href="{{ url_for('logout') }}">Logout</a>
+        {% endif %}
+      </div>
+    </header>
+    <main class="content">
+      {% block content %}{% endblock %}
+    </main>
+    <footer class="footer">
+      Made with Flask & Socket.IO
+    </footer>
+  </div>
+</body>
+</html>

@@ -1,0 +1,17 @@
+<!-- templates/login.html -->
+{% extends "base.html" %}
+{% block title %}Login — Chat{% endblock %}
+{% block content %}
+<div class="login-card">
+  <h2>Welcome</h2>
+  <form method="post" action="{{ url_for('login') }}">
+    <label>Choose a display name</label>
+    <input type="text" name="username" placeholder="e.g. charan" required />
+    {% if error %}
+      <div class="error">{{ error }}</div>
+    {% endif %}
+    <button class="btn" type="submit">Enter Chat</button>
+  </form>
+  <p class="muted">No passwords — quick demo. Use unique display names to DM others.</p>
+</div>
+{% endblock %}

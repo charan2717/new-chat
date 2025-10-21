@@ -1,0 +1,88 @@
+<!-- templates/index.html -->
+{% extends "base.html" %}
+{% block title %}Rooms — Chat{% endblock %}
+{% block content %}
+<div class="index-grid">
+  <aside class="sidebar">
+    <h3>Rooms</h3>
+    <ul class="rooms-list">
+      <li><a href="{{ url_for('chat_room', room='global') }}"># global</a></li>
+      {% for r in rooms %}
+        <li><a href="{{ url_for('chat_room', room=r) }}"># {{ r }}</a></li>
+      {% endfor %}
+    </ul>
+
+    <h3>Create Room</h3>
+    <form id="create-room-form">
+      <input id="new-room" placeholder="room-name" />
+      <button id="create-room-btn" class="btn">Create & Join</button>
+    </form>
+
+    <h3>Direct Message</h3>
+    <form id="dm-form">
+      <input id="dm-username" placeholder="username to DM" />
+      <button id="dm-btn" class="btn">Open DM</button>
+    </form>
+  </aside>
+
+  <section class="main-pane">
+    <h2>Active users</h2>
+    <ul id="user-list" class="user-list"></ul>
+    <p class="muted">Click a user to open a DM.</p>
+  </section>
+</div>
+
+<script>
+  const username = "{{ username }}";
+  const socket = io();
+  socket.on('connect', () => {
+    socket.emit('join_app', { username });
+  });
+
+  socket.on('user_list', (data) => {
+    const users = data.users || [];
+    const ul = document.getElementById('user-list');
+    ul.innerHTML = '';
+    users.forEach(u => {
+      const li = document.createElement('li');
+      li.innerHTML = `<a href="#" class="user-link">${u}</a>`;
+      li.querySelector('a').addEventListener('click', (e) => {
+        e.preventDefault();
+        if(u === username) { alert("That's you!"); return; }
+        // create DM room via API
+        fetch('/direct_room', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ other: u })
+        }).then(r => r.json()).then(js => {
+          if(js.room) window.location = `/chat/${js.room}`;
+        });
+      });
+      ul.appendChild(li);
+    });
+  });
+
+  // Create room
+  document.getElementById('create-room-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const name = document.getElementById('new-room').value.trim();
+    if (!name) return alert("Enter room name");
+    window.location = `/chat/${encodeURIComponent(name)}`;
+  });
+
+  // DM form
+  document.getElementById('dm-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const other = document.getElementById('dm-username').value.trim();
+    if(!other) return alert("Enter username");
+    fetch('/direct_room', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ other })
+    }).then(r => r.json()).then(js => {
+      if(js.room) window.location = `/chat/${js.room}`;
+    });
+  });
+
+</script>
+{% endblock %}
