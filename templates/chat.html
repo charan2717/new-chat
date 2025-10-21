@@ -1,140 +1,62 @@
-<!-- templates/chat.html -->
 {% extends "base.html" %}
-{% block title %}{{ room }} — Chat{% endblock %}
-{% block content %}
+{% block body %}
 <div class="chat-container">
-  <aside class="chat-sidebar">
-    <h3>Room: <span class="room-name">{{ room }}</span></h3>
-    <div>
-      <strong>Users online</strong>
-      <ul id="sidebar-users" class="user-list"></ul>
+    <div class="chat-header">
+        Chat Room: {{ room }}
+        <a href="{{ url_for('index') }}" class="logout">Back</a>
     </div>
-    <div class="muted small">Tip: use Direct Messages by creating rooms named dm_userA_userB</div>
-  </aside>
-
-  <section class="chat-main">
-    <div id="messages" class="messages">
-      {% for m in messages %}
-        <div class="msg {% if m.sender == session['username'] %}mine{% endif %}">
-          <div class="meta"><strong>{{ m.sender }}</strong> <span class="ts">{{ m.timestamp.strftime('%Y-%m-%d %H:%M:%S') }}</span></div>
-          <div class="text">{{ m.text }}</div>
+    <div id="messages" class="chat-messages">
+        {% for msg in messages %}
+        <div class="message {% if msg.sender == username %}mine{% endif %}">
+            <b>{{ msg.sender }}:</b> {{ msg.text }}
         </div>
-      {% endfor %}
-      <div id="typing-indicator" class="typing muted" style="display:none;"></div>
+        {% endfor %}
     </div>
-
-    <form id="message-form" class="message-form">
-      <input id="text" autocomplete="off" placeholder="Write a message..." />
-      <button class="btn" type="submit">Send</button>
-    </form>
-  </section>
+    <div class="chat-input">
+        <input type="text" id="msgInput" placeholder="Type a message..." autocomplete="off">
+        <button id="sendBtn">Send</button>
+    </div>
 </div>
-
 <script>
-  const username = "{{ username }}";
-  const room = "{{ room }}";
-  const socket = io();
+    const socket = io();
+    const username = "{{ username }}";
+    const room = "{{ room }}";
+    socket.emit("join_app", {username});
+    socket.emit("join", {username, room});
 
-  // on connect register
-  socket.on('connect', () => {
-    socket.emit('join_app', { username });
-    socket.emit('join', { room, username });
-  });
+    const msgInput = document.getElementById("msgInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const messagesDiv = document.getElementById("messages");
 
-  socket.on('disconnect', () => {
-    console.log('disconnected');
-  });
+    sendBtn.onclick = () => {
+        const text = msgInput.value.trim();
+        if (!text) return;
+        socket.emit("send_message", {room, sender: username, text});
+        msgInput.value = "";
+    };
 
-  // load user list
-  socket.on('user_list', (data) => {
-    const ul = document.getElementById('sidebar-users');
-    ul.innerHTML = '';
-    (data.users || []).forEach(u => {
-      const li = document.createElement('li');
-      li.textContent = u;
-      if(u === username) li.classList.add('me');
-      ul.appendChild(li);
+    socket.on("new_message", data => {
+        const div = document.createElement("div");
+        div.classList.add("message");
+        if(data.sender === username) div.classList.add("mine");
+        div.innerHTML = `<b>${data.sender}:</b> ${data.text}`;
+        messagesDiv.appendChild(div);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
     });
-  });
 
-  socket.on('system_message', (payload) => {
-    console.log('system', payload.msg);
-    const messages = document.getElementById('messages');
-    const el = document.createElement('div');
-    el.className = 'system';
-    el.textContent = payload.msg;
-    messages.appendChild(el);
-    messages.scrollTop = messages.scrollHeight;
-  });
+    socket.on("system_message", data => {
+        const div = document.createElement("div");
+        div.classList.add("system-msg");
+        div.textContent = data.msg;
+        messagesDiv.appendChild(div);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    });
 
-  socket.on('new_message', (payload) => {
-    if(payload.room !== room) return;
-    appendMessage(payload.sender, payload.text, payload.timestamp, payload.sender === username);
-  });
-
-  socket.on('typing', (payload) => {
-    const ind = document.getElementById('typing-indicator');
-    if(payload.typing && payload.sender !== username) {
-      ind.style.display = 'block';
-      ind.textContent = `${payload.sender} is typing...`;
-    } else {
-      ind.style.display = 'none';
-    }
-  });
-
-  function appendMessage(sender, text, ts, mine=false) {
-    const messages = document.getElementById('messages');
-    const wrapper = document.createElement('div');
-    wrapper.className = 'msg' + (mine ? ' mine' : '');
-    const meta = document.createElement('div');
-    meta.className = 'meta';
-    meta.innerHTML = `<strong>${escapeHtml(sender)}</strong> <span class="ts">${new Date(ts).toLocaleString()}</span>`;
-    const body = document.createElement('div');
-    body.className = 'text';
-    body.textContent = text;
-    wrapper.appendChild(meta);
-    wrapper.appendChild(body);
-    messages.appendChild(wrapper);
-    messages.scrollTop = messages.scrollHeight;
-  }
-
-  // helper
-  function escapeHtml(unsafe) {
-      return unsafe
-           .replace(/&/g, "&amp;")
-           .replace(/</g, "&lt;")
-           .replace(/>/g, "&gt;")
-           .replace(/"/g, "&quot;")
-           .replace(/'/g, "&#039;");
-  }
-
-  // send message
-  document.getElementById('message-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    const input = document.getElementById('text');
-    const text = input.value.trim();
-    if(!text) return;
-    socket.emit('send_message', { room, text, sender: username });
-    input.value = '';
-    socket.emit('typing', { room, sender: username, typing: false });
-    // locally append will be done when server emits new_message, so skip local echo for consistency
-  });
-
-  // typing indicator events
-  let typingTimeout;
-  const textInput = document.getElementById('text');
-  textInput.addEventListener('input', () => {
-    socket.emit('typing', { room, sender: username, typing: true });
-    clearTimeout(typingTimeout);
-    typingTimeout = setTimeout(() => {
-      socket.emit('typing', { room, sender: username, typing: false });
-    }, 800);
-  });
-
-  // scroll to bottom
-  window.onload = () => {
-    const messages = document.getElementById('messages');
-    messages.scrollTop = messages.scrollHeight;
-  };
+    msgInput.addEventListener("keypress", () => {
+        socket.emit("typing", {room, sender: username, typing: true});
+    });
+    msgInput.addEventListener("blur", () => {
+        socket.emit("typing", {room, sender: username, typing: false});
+    });
 </script>
 {% endblock %}
