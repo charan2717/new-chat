@@ -12,6 +12,25 @@
     {% endfor %}
 </ul>
 
+<h3>Registered Users</h3>
+<ul>
+{% for user in users %}
+    <li>
+        {{ user.username }}
+        {% if user.username in active_users %}
+            <span style="color:green">(online)</span>
+        {% endif %}
+        <form method="POST" action="{{ url_for('direct_room') }}">
+            <input type="hidden" name="other" value="{{ user.username }}">
+            <button type="submit">Chat</button>
+        </form>
+    </li>
+{% else %}
+    <li>No other users registered</li>
+{% endfor %}
+</ul>
+
+
 <h3>Start New Chat</h3>
 <ul>
     {% for user in users %}
@@ -26,3 +45,4 @@
     {% endfor %}
 </ul>
 {% endblock %}
+
