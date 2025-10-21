@@ -1,12 +1,12 @@
 import os
 from datetime import datetime
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session
 from flask_sqlalchemy import SQLAlchemy
 from flask_socketio import SocketIO, join_room, leave_room, emit
 from werkzeug.security import generate_password_hash, check_password_hash
 
 # --------------------------
-# Config
+# App config
 # --------------------------
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'change_this_secret_key'
@@ -41,13 +41,13 @@ class Message(db.Model):
         }
 
 # --------------------------
-# DB init
+# Initialize DB
 # --------------------------
 with app.app_context():
     db.create_all()
 
 # --------------------------
-# In-memory tracking
+# In-memory presence tracking
 # --------------------------
 ACTIVE_USERS = {}
 USERNAME_TO_SID = {}
@@ -103,13 +103,17 @@ def logout():
 def index():
     if "username" not in session:
         return redirect(url_for("login"))
+    username = session["username"]
+    # Existing rooms
     rooms = []
     try:
         rows = db.session.query(Message.room).distinct().limit(50).all()
         rooms = [r[0] for r in rows if r[0]]
     except:
         pass
-    return render_template("index.html", rooms=rooms, username=session["username"])
+    # Other users for starting DM
+    other_users = User.query.filter(User.username != username).all()
+    return render_template("index.html", rooms=rooms, users=other_users, username=username)
 
 @app.route("/chat/<room>")
 def chat_room(room):
@@ -122,32 +126,17 @@ def chat_room(room):
 @app.route("/direct_room", methods=["POST"])
 def direct_room():
     if "username" not in session:
-        return jsonify({"error": "not authenticated"}), 401
+        return redirect(url_for("login"))
     other = request.form.get("other")
     if not other:
-        return jsonify({"error": "missing 'other' username"}), 400
+        return redirect(url_for("index"))
     me = session["username"]
     pair = sorted([me, other])
     room = f"dm_{pair[0]}_{pair[1]}"
-    return jsonify({"room": room})
-
-@app.route("/api/messages/<room>")
-def api_messages(room):
-    limit = int(request.args.get("limit", 50))
-    before = request.args.get("before")
-    q = Message.query.filter_by(room=room)
-    if before:
-        try:
-            before_dt = datetime.fromisoformat(before)
-            q = q.filter(Message.timestamp < before_dt)
-        except:
-            pass
-    msgs = q.order_by(Message.timestamp.desc()).limit(limit).all()
-    msgs = list(reversed([m.to_dict() for m in msgs]))
-    return jsonify({"messages": msgs})
+    return redirect(url_for("chat_room", room=room))
 
 # --------------------------
-# SocketIO Events
+# SocketIO events
 # --------------------------
 @socketio.on("connect")
 def on_connect():
